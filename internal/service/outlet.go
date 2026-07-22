@@ -68,7 +68,7 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 			SyncStatus:    constants.SyncStatusSynced,
 		}
 
-		err := s.workingScheduleRepo.Create(ctx, tx, schedule)
+		err := s.workingScheduleRepo.Upsert(ctx, tx, schedule)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 	return res, tx.Commit()
 }
 
-func (s *OutletService) GetByID(ctx context.Context, id uint) (*model.Outlet, error) {
+func (s *OutletService) GetByID(ctx context.Context, id uint) (*dto.OutletResponse, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,19 @@ func (s *OutletService) GetByID(ctx context.Context, id uint) (*model.Outlet, er
 		return nil, customerrors.OutletErrNotFound
 	}
 
-	return outlet, tx.Commit()
+	schedules, err := s.workingScheduleRepo.FindByOutletID(ctx, tx, outlet.OutletID)
+	if err != nil {
+		return nil, err
+	}
+
+	schedulesResponse := make([]*dto.WorkingScheduleResponse, 0)
+	for _, schedule := range schedules {
+		schedulesResponse = append(schedulesResponse, dto.ToWorkingScheduleResponse(&schedule, []*dto.EvidenceResponse{}))
+	}
+
+	res := dto.ToOutletResponse(outlet, schedulesResponse)
+
+	return res, tx.Commit()
 }
 
 func (s *OutletService) GetAll(ctx context.Context, pagination *response.Pagination) ([]model.Outlet, error) {

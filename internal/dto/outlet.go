@@ -3,6 +3,7 @@ package dto
 import (
 	"magnolia-test-backend/internal/constants"
 	customerrors "magnolia-test-backend/internal/custom-errors"
+	"magnolia-test-backend/internal/model"
 	"time"
 )
 
@@ -86,12 +87,48 @@ func (r UpdateOutletRequest) Validate() error {
 }
 
 type OutletResponse struct {
-	OutletID uint   `json:"outlet_id"`
-	Name     string `json:"name"`
-	Address  string `json:"address"`
-	Channel  string `json:"channel"`
-	Tier     string `json:"tier"`
-	SalesID  uint   `json:"sales_id"`
-	Stage    string `json:"stage"`
-	Note     string `json:"note"`
+	OutletID         uint                       `json:"outlet_id"`
+	Name             string                     `json:"name"`
+	Address          string                     `json:"address"`
+	Channel          string                     `json:"channel"`
+	Tier             string                     `json:"tier"`
+	SalesID          uint                       `json:"sales_id"`
+	Stage            string                     `json:"stage"`
+	Note             string                     `json:"note"`
+	WorkingSchedules []*WorkingScheduleResponse `json:"working_schedules"`
+}
+
+func ToOutletResponse(
+	outlet *model.Outlet,
+	schedules []*WorkingScheduleResponse,
+) *OutletResponse {
+	if outlet == nil {
+		return nil
+	}
+
+	var note string
+	if outlet.Note != nil {
+		note = *outlet.Note
+	}
+
+	res := &OutletResponse{
+		OutletID:         outlet.OutletID,
+		Name:             outlet.Name,
+		Address:          outlet.Address,
+		Channel:          outlet.Channel,
+		Tier:             outlet.Tier,
+		SalesID:          outlet.SalesID,
+		Stage:            outlet.Stage,
+		Note:             note,
+		WorkingSchedules: make([]*WorkingScheduleResponse, 0, len(schedules)),
+	}
+
+	for _, schedule := range schedules {
+		res.WorkingSchedules = append(
+			res.WorkingSchedules,
+			schedule,
+		)
+	}
+
+	return res
 }
