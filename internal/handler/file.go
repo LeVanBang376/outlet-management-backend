@@ -12,18 +12,18 @@ import (
 	"magnolia-test-backend/internal/service"
 )
 
-type EvidenceHandler struct {
-	service *service.EvidenceService
+type FileHandler struct {
+	service *service.FileService
 }
 
-func NewEvidenceHandler(service *service.EvidenceService) *EvidenceHandler {
-	return &EvidenceHandler{
+func NewFileHandler(service *service.FileService) *FileHandler {
+	return &FileHandler{
 		service: service,
 	}
 }
 
-func (h *EvidenceHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req dto.CreateEvidenceRequest
+func (h *FileHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var req dto.CreateFileRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.NonDataJSON(
@@ -52,13 +52,12 @@ func (h *EvidenceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func (h *EvidenceHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(
 		r.PathValue("id"),
 		10,
 		64,
 	)
-
 	if err != nil {
 		response.NonDataJSON(
 			w,
@@ -68,17 +67,16 @@ func (h *EvidenceHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	evidence, err := h.service.GetByID(
+	file, err := h.service.GetByID(
 		r.Context(),
 		uint(id),
 	)
-
 	if err != nil {
-		if errors.Is(err, customerrors.EvidenceErrNotFound) {
+		if errors.Is(err, customerrors.FileErrNotFound) {
 			response.NonDataJSON(
 				w,
 				http.StatusNotFound,
-				"Evidence not found",
+				"File not found",
 			)
 			return
 		}
@@ -95,31 +93,12 @@ func (h *EvidenceHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		w,
 		http.StatusOK,
 		"Success",
-		evidence,
+		file,
 	)
 }
 
-func (h *EvidenceHandler) GetByScheduleID(w http.ResponseWriter, r *http.Request) {
-	scheduleID, err := strconv.ParseUint(
-		r.PathValue("scheduleId"),
-		10,
-		64,
-	)
-
-	if err != nil {
-		response.NonDataJSON(
-			w,
-			http.StatusBadRequest,
-			"Invalid schedule ID",
-		)
-		return
-	}
-
-	evidences, err := h.service.GetByScheduleID(
-		r.Context(),
-		uint(scheduleID),
-	)
-
+func (h *FileHandler) GetAll(w http.ResponseWriter, r *http.Request) {
+	files, err := h.service.GetAll(r.Context())
 	if err != nil {
 		response.NonDataJSON(
 			w,
@@ -133,17 +112,16 @@ func (h *EvidenceHandler) GetByScheduleID(w http.ResponseWriter, r *http.Request
 		w,
 		http.StatusOK,
 		"Success",
-		evidences,
+		files,
 	)
 }
 
-func (h *EvidenceHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(
 		r.PathValue("id"),
 		10,
 		64,
 	)
-
 	if err != nil {
 		response.NonDataJSON(
 			w,
@@ -157,13 +135,12 @@ func (h *EvidenceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		uint(id),
 	)
-
 	if err != nil {
-		if errors.Is(err, customerrors.EvidenceErrNotFound) {
+		if errors.Is(err, customerrors.FileErrNotFound) {
 			response.NonDataJSON(
 				w,
 				http.StatusNotFound,
-				"Evidence not found",
+				"File not found",
 			)
 			return
 		}

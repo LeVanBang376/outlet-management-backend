@@ -33,4 +33,9 @@ func RegisterWorkingScheduleRoutes(
 		"DELETE /working-schedules/{id}",
 		handler.Delete,
 	)
+
+	mux.HandleFunc(
+		"POST /working-schedules/{id}/change-stage",
+		handler.ChangeStage,
+	)
 }

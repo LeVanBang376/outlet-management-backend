@@ -3,71 +3,76 @@ package service
 import (
 	"context"
 	"database/sql"
+
 	customerrors "magnolia-test-backend/internal/custom-errors"
 	"magnolia-test-backend/internal/dto"
 	"magnolia-test-backend/internal/model"
 	"magnolia-test-backend/internal/repository"
-	"time"
 )
 
 type EvidenceService struct {
-	db   *sql.DB
-	repo *repository.EvidenceRepository
+	db       *sql.DB
+	repo     *repository.EvidenceRepository
+	fileRepo *repository.FileRepository
 }
 
-func NewEvidenceService(db *sql.DB, repo *repository.EvidenceRepository) *EvidenceService {
+func NewEvidenceService(
+	db *sql.DB,
+	repo *repository.EvidenceRepository,
+	fileRepo *repository.FileRepository,
+) *EvidenceService {
 	return &EvidenceService{
-		db:   db,
-		repo: repo,
+		db:       db,
+		repo:     repo,
+		fileRepo: fileRepo,
 	}
 }
 
 func (s *EvidenceService) Create(
 	ctx context.Context,
 	req dto.CreateEvidenceRequest,
-) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	evidence := model.Evidence{
-		ScheduleID:  req.ScheduleID,
-		ObjectKey:   req.ObjectKey,
-		FileName:    req.FileName,
-		ContentType: req.ContentType,
-		Size:        req.Size,
-		CreatedAt:   time.Now(),
-	}
-
-	if err := s.repo.Create(
-		ctx,
-		tx,
-		&evidence,
-	); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-func (s *EvidenceService) GetByID(
-	ctx context.Context,
-	id uint,
-) (*model.Evidence, error) {
+) (*dto.EvidenceResponse, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	evidence, err := s.repo.FindByID(
-		ctx,
-		tx,
-		id,
-	)
+	evidence := model.Evidence{
+		ScheduleID: req.ScheduleID,
+		FileID:     req.FileID,
+	}
 
+	res, err := s.repo.Create(ctx, tx, &evidence)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := s.fileRepo.FindByID(ctx, tx, evidence.FileID)
+	if err != nil {
+		return nil, err
+	}
+
+	res.File = dto.ToFileResponse(file)
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (s *EvidenceService) GetByID(
+	ctx context.Context,
+	id uint,
+) (*dto.EvidenceResponse, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	evidence, err := s.repo.FindByID(ctx, tx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -76,28 +81,57 @@ func (s *EvidenceService) GetByID(
 		return nil, customerrors.EvidenceErrNotFound
 	}
 
-	return evidence, tx.Commit()
+	file, err := s.fileRepo.FindByID(ctx, tx, evidence.FileID)
+	if err != nil {
+		return nil, err
+	}
+
+	res := dto.ToEvidenceResponse(
+		evidence,
+		dto.ToFileResponse(file),
+	)
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (s *EvidenceService) GetByScheduleID(
 	ctx context.Context,
 	scheduleID uint,
-) ([]model.Evidence, error) {
+) ([]*dto.EvidenceResponse, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return []model.Evidence{}, err
-	}
-	defer tx.Rollback()
-
-	evidences, err := s.repo.FindByScheduleID(
-		ctx,
-		tx,
-		scheduleID,
-	)
 	if err != nil {
 		return nil, err
 	}
-	return evidences, tx.Commit()
+	defer tx.Rollback()
+
+	evidences, err := s.repo.FindByScheduleID(ctx, tx, scheduleID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*dto.EvidenceResponse, 0, len(evidences))
+
+	for _, evidence := range evidences {
+		_, err := s.fileRepo.FindByID(ctx, tx, evidence.FileID)
+		if err != nil {
+			return nil, err
+		}
+
+		responses = append(
+			responses,
+			evidence,
+		)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return responses, nil
 }
 
 func (s *EvidenceService) Delete(
@@ -110,11 +144,7 @@ func (s *EvidenceService) Delete(
 	}
 	defer tx.Rollback()
 
-	evidence, err := s.GetByID(
-		ctx,
-		id,
-	)
-
+	evidence, err := s.repo.FindByID(ctx, tx, id)
 	if err != nil {
 		return err
 	}
@@ -123,11 +153,7 @@ func (s *EvidenceService) Delete(
 		return customerrors.EvidenceErrNotFound
 	}
 
-	if err := s.repo.Delete(
-		ctx,
-		tx,
-		id,
-	); err != nil {
+	if err := s.repo.Delete(ctx, tx, id); err != nil {
 		return err
 	}
 

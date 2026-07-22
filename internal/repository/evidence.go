@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+
+	"magnolia-test-backend/internal/dto"
 	"magnolia-test-backend/internal/model"
 )
 
@@ -20,43 +22,33 @@ func (r *EvidenceRepository) Create(
 	ctx context.Context,
 	tx *sql.Tx,
 	evidence *model.Evidence,
-) error {
-
+) (*dto.EvidenceResponse, error) {
 	query := `
 		INSERT INTO evidences (
 			schedule_id,
-			object_key,
-			file_name,
-			content_type,
-			size,
-			created_at
+			file_id
 		)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES (?, ?)
 	`
 
 	result, err := tx.ExecContext(
 		ctx,
 		query,
 		evidence.ScheduleID,
-		evidence.ObjectKey,
-		evidence.FileName,
-		evidence.ContentType,
-		evidence.Size,
-		evidence.CreatedAt,
+		evidence.FileID,
 	)
-
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	evidence.EvidenceID = uint(id)
 
-	return nil
+	return dto.ToEvidenceResponse(evidence, nil), nil
 }
 
 func (r *EvidenceRepository) FindByID(
@@ -64,34 +56,21 @@ func (r *EvidenceRepository) FindByID(
 	tx *sql.Tx,
 	id uint,
 ) (*model.Evidence, error) {
-
 	query := `
 		SELECT
 			evidence_id,
 			schedule_id,
-			object_key,
-			file_name,
-			content_type,
-			size,
-			created_at
+			file_id
 		FROM evidences
 		WHERE evidence_id = ?
 	`
 
 	var evidence model.Evidence
 
-	err := tx.QueryRowContext(
-		ctx,
-		query,
-		id,
-	).Scan(
+	err := tx.QueryRowContext(ctx, query, id).Scan(
 		&evidence.EvidenceID,
 		&evidence.ScheduleID,
-		&evidence.ObjectKey,
-		&evidence.FileName,
-		&evidence.ContentType,
-		&evidence.Size,
-		&evidence.CreatedAt,
+		&evidence.FileID,
 	)
 
 	if err != nil {
@@ -109,56 +88,68 @@ func (r *EvidenceRepository) FindByScheduleID(
 	ctx context.Context,
 	tx *sql.Tx,
 	scheduleID uint,
-) ([]model.Evidence, error) {
-
+) ([]*dto.EvidenceResponse, error) {
 	query := `
 		SELECT
-			evidence_id,
-			schedule_id,
-			object_key,
-			file_name,
-			content_type,
-			size,
-			created_at
-		FROM evidences
-		WHERE schedule_id = ?
+			e.evidence_id,
+			e.schedule_id,
+			e.file_id,
+
+			f.file_id,
+			f.object_key,
+			f.file_name,
+			f.content_type,
+			f.size,
+			f.created_at
+		FROM evidences e
+		INNER JOIN files f
+			ON e.file_id = f.file_id
+		WHERE e.schedule_id = ?
+		ORDER BY e.evidence_id ASC
 	`
 
-	rows, err := tx.QueryContext(
-		ctx,
-		query,
-		scheduleID,
-	)
-
+	rows, err := tx.QueryContext(ctx, query, scheduleID)
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
 
-	evidences := make([]model.Evidence, 0)
+	evidences := make([]*dto.EvidenceResponse, 0)
 
 	for rows.Next() {
 		var evidence model.Evidence
+		var file model.File
 
 		err := rows.Scan(
 			&evidence.EvidenceID,
 			&evidence.ScheduleID,
-			&evidence.ObjectKey,
-			&evidence.FileName,
-			&evidence.ContentType,
-			&evidence.Size,
-			&evidence.CreatedAt,
-		)
+			&evidence.FileID,
 
+			&file.FileID,
+			&file.ObjectKey,
+			&file.FileName,
+			&file.ContentType,
+			&file.Size,
+			&file.CreatedAt,
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		evidences = append(evidences, evidence)
+		evidences = append(
+			evidences,
+			dto.ToEvidenceResponse(
+				&evidence,
+				dto.ToFileResponse(&file),
+			),
+		)
 	}
 
-	return evidences, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return evidences, nil
 }
 
 func (r *EvidenceRepository) Delete(
@@ -166,16 +157,30 @@ func (r *EvidenceRepository) Delete(
 	tx *sql.Tx,
 	id uint,
 ) error {
-
 	query := `
 		DELETE FROM evidences
 		WHERE evidence_id = ?
 	`
 
+	_, err := tx.ExecContext(ctx, query, id)
+
+	return err
+}
+
+func (r *EvidenceRepository) DeleteByScheduleID(
+	ctx context.Context,
+	tx *sql.Tx,
+	scheduleID uint,
+) error {
+	query := `
+		DELETE FROM evidences
+		WHERE schedule_id = ?
+	`
+
 	_, err := tx.ExecContext(
 		ctx,
 		query,
-		id,
+		scheduleID,
 	)
 
 	return err

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"magnolia-test-backend/internal/constants"
 	customerrors "magnolia-test-backend/internal/custom-errors"
@@ -42,6 +43,10 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 	defer tx.Rollback()
 
 	now := time.Now()
+	scheduleDate, err := time.Parse(time.RFC3339, req.ScheduleDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid schedule_date: %w", err)
+	}
 
 	outlet := model.Outlet{
 		Name:      req.Name,
@@ -67,10 +72,10 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 			OutletID:      res.OutletID,
 			SalesID:       res.SalesID,
 			Address:       res.Address,
-			ScheduleDate:  now,
+			ScheduleDate:  scheduleDate,
 			CurrentStage:  res.Stage,
-			ExpectedStage: nil,
-			Note:          nil,
+			ExpectedStage: &req.ExpectedStage,
+			Note:          &req.ScheduleNote,
 			SyncStatus:    constants.SyncStatusQueued,
 		}
 
@@ -121,7 +126,7 @@ func (s *OutletService) GetByID(ctx context.Context, id uint) (*dto.OutletRespon
 
 	schedulesResponse := make([]*dto.WorkingScheduleResponse, 0)
 	for _, schedule := range schedules {
-		schedulesResponse = append(schedulesResponse, dto.ToWorkingScheduleResponse(&schedule, []*dto.EvidenceResponse{}))
+		schedulesResponse = append(schedulesResponse, dto.ToWorkingScheduleResponse(&schedule, []*dto.EvidenceResponse{}, nil))
 	}
 
 	res := dto.ToOutletResponse(outlet, schedulesResponse)
@@ -173,10 +178,6 @@ func (s *OutletService) Update(ctx context.Context, id uint, req dto.UpdateOutle
 	outlet.Stage = req.Stage
 	outlet.Note = &req.Note
 	outlet.UpdatedAt = time.Now()
-
-	if err := s.repo.Update(ctx, tx, outlet); err != nil {
-		return err
-	}
 
 	return tx.Commit()
 }

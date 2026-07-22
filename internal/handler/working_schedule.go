@@ -223,3 +223,52 @@ func (h *WorkingScheduleHandler) Delete(w http.ResponseWriter, r *http.Request) 
 		"Deleted successfully",
 	)
 }
+
+func (h *WorkingScheduleHandler) ChangeStage(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	id, err := strconv.ParseUint(
+		r.PathValue("id"),
+		10,
+		64,
+	)
+
+	if err != nil {
+		response.NonDataJSON(
+			w,
+			http.StatusBadRequest,
+			"Invalid ID",
+		)
+		return
+	}
+
+	err = h.service.ChangeStage(
+		r.Context(),
+		uint(id),
+	)
+
+	if err != nil {
+		if errors.Is(err, customerrors.WorkingScheduleErrNotFound) {
+			response.NonDataJSON(
+				w,
+				http.StatusNotFound,
+				"Working schedule not found",
+			)
+			return
+		}
+
+		response.NonDataJSON(
+			w,
+			http.StatusBadRequest,
+			err.Error(),
+		)
+		return
+	}
+
+	response.NonDataJSON(
+		w,
+		http.StatusOK,
+		"Stage changed successfully",
+	)
+}

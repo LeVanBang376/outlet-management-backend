@@ -61,7 +61,7 @@ func (r *WorkingScheduleRepository) Create(ctx context.Context, tx *sql.Tx, sche
 
 	schedule.ScheduleID = uint(id)
 
-	res := dto.ToWorkingScheduleResponse(schedule, []*dto.EvidenceResponse{})
+	res := dto.ToWorkingScheduleResponse(schedule, []*dto.EvidenceResponse{}, nil)
 
 	return res, nil
 }
@@ -176,22 +176,24 @@ func (r *WorkingScheduleRepository) FindByOutletID(
 	return schedules, nil
 }
 
-func (r *WorkingScheduleRepository) FindAll(ctx context.Context, tx *sql.Tx) ([]model.WorkingSchedule, error) {
+func (r *WorkingScheduleRepository) FindAll(ctx context.Context, tx *sql.Tx) ([]*dto.WorkingScheduleResponse, error) {
 	query := `
-		SELECT
-			schedule_id,
-			outlet_id,
-			sales_id,
-			address,
-			schedule_date,
-			current_stage,
-			expected_stage,
-			note,
-			sync_status,
-			created_at,
-			updated_at
-		FROM working_schedules
-	`
+	SELECT
+		ws.schedule_id,
+		ws.outlet_id,
+		o.name AS outlet_name,
+		ws.sales_id,
+		ws.address,
+		ws.schedule_date,
+		ws.current_stage,
+		ws.expected_stage,
+		ws.note,
+		ws.sync_status,
+		ws.created_at,
+		ws.updated_at
+	FROM working_schedules ws
+	INNER JOIN outlets o
+		ON ws.outlet_id = o.outlet_id`
 
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
@@ -200,14 +202,15 @@ func (r *WorkingScheduleRepository) FindAll(ctx context.Context, tx *sql.Tx) ([]
 
 	defer rows.Close()
 
-	schedules := make([]model.WorkingSchedule, 0)
+	schedules := make([]*dto.WorkingScheduleResponse, 0)
 
 	for rows.Next() {
-		var schedule model.WorkingSchedule
+		var schedule dto.WorkingScheduleResponse
 
 		err := rows.Scan(
 			&schedule.ScheduleID,
 			&schedule.OutletID,
+			&schedule.OutletName,
 			&schedule.SalesID,
 			&schedule.Address,
 			&schedule.ScheduleDate,
@@ -223,7 +226,7 @@ func (r *WorkingScheduleRepository) FindAll(ctx context.Context, tx *sql.Tx) ([]
 			return nil, err
 		}
 
-		schedules = append(schedules, schedule)
+		schedules = append(schedules, &schedule)
 	}
 
 	return schedules, rows.Err()
@@ -233,12 +236,12 @@ func (r *WorkingScheduleRepository) Update(ctx context.Context, tx *sql.Tx, sche
 	query := `
 		UPDATE working_schedules
 		SET
+			sales_id = ?,
 			address = ?,
 			schedule_date = ?,
-			current_stage = ?,
 			expected_stage = ?,
-			note = ?,
 			sync_status = ?,
+			note = ?,
 			updated_at = ?
 		WHERE schedule_id = ?
 	`
@@ -246,12 +249,12 @@ func (r *WorkingScheduleRepository) Update(ctx context.Context, tx *sql.Tx, sche
 	_, err := tx.ExecContext(
 		ctx,
 		query,
+		schedule.SalesID,
 		schedule.Address,
 		schedule.ScheduleDate,
-		schedule.CurrentStage,
 		schedule.ExpectedStage,
-		schedule.Note,
 		schedule.SyncStatus,
+		schedule.Note,
 		schedule.UpdatedAt,
 		schedule.ScheduleID,
 	)
@@ -260,7 +263,7 @@ func (r *WorkingScheduleRepository) Update(ctx context.Context, tx *sql.Tx, sche
 		return nil, err
 	}
 
-	res := dto.ToWorkingScheduleResponse(schedule, []*dto.EvidenceResponse{})
+	res := dto.ToWorkingScheduleResponse(schedule, []*dto.EvidenceResponse{}, nil)
 	return res, nil
 }
 
@@ -298,7 +301,7 @@ func (r *WorkingScheduleRepository) FindBySalesOutletAndDate(
 		FROM working_schedules
 		WHERE sales_id = ?
 			AND outlet_id = ?
-			AND DATE(schedule_date) = DATE(?)
+			AND schedule_date = ?
 		LIMIT 1
 	`
 

@@ -6,6 +6,7 @@ import (
 	"magnolia-test-backend/internal/dto"
 	"magnolia-test-backend/internal/model"
 	"magnolia-test-backend/internal/response"
+	"time"
 )
 
 type OutletRepository struct {
@@ -214,6 +215,32 @@ func (r *OutletRepository) Delete(ctx context.Context, tx *sql.Tx, id uint) erro
 		ctx,
 		query,
 		id,
+	)
+
+	return err
+}
+
+func (r *OutletRepository) UpdateStage(
+	ctx context.Context,
+	tx *sql.Tx,
+	outletID uint,
+	stage string,
+	updatedAt time.Time,
+) error {
+	query := `
+		UPDATE outlets
+		SET
+			stage = ?,
+			updated_at = ?
+		WHERE outlet_id = ?
+	`
+
+	_, err := tx.ExecContext(
+		ctx,
+		query,
+		stage,
+		updatedAt,
+		outletID,
 	)
 
 	return err

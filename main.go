@@ -82,21 +82,24 @@ func main() {
 	workingScheduleRepository := repository.NewWorkingScheduleRepository(db)
 	evidenceRepository := repository.NewEvidenceRepository(db)
 	salesRepository := repository.NewSalesRepository(db)
+	fileRepository := repository.NewFileRepository(db)
 
 	// Worker
 	worker := worker.NewWorker(workingScheduleRepository)
 
 	// Services
 	outletService := service.NewOutletService(db, outletRepository, workingScheduleRepository, worker)
-	workingScheduleService := service.NewWorkingScheduleService(db, workingScheduleRepository)
-	evidenceService := service.NewEvidenceService(db, evidenceRepository)
+	workingScheduleService := service.NewWorkingScheduleService(db, workingScheduleRepository, outletRepository, evidenceRepository, worker)
+	evidenceService := service.NewEvidenceService(db, evidenceRepository, fileRepository)
 	salesService := service.NewSalesService(db, salesRepository)
+	fileService := service.NewFileService(db, fileRepository)
 
 	// Handlers
 	outletHandler := handler.NewOutletHandler(outletService)
 	workingScheduleHandler := handler.NewWorkingScheduleHandler(workingScheduleService)
 	evidenceHandler := handler.NewEvidenceHandler(evidenceService)
 	salesHandler := handler.NewSalesHandler(salesService)
+	fileHandler := handler.NewFileHandler(fileService)
 
 	// Apply middlewares - Recovery and CORS
 	handler := middleware.CORS([]string{"http://localhost:3000"})(mux)
@@ -105,6 +108,7 @@ func main() {
 	routes.RegisterWorkingScheduleRoutes(mux, workingScheduleHandler)
 	routes.RegisterEvidenceRoutes(mux, evidenceHandler)
 	routes.RegisterSalesRoutes(mux, salesHandler)
+	routes.RegisterFileRoutes(mux, fileHandler)
 
 	// Ensure in-flight requests aren't cancelled immediately on SIGTERM
 	ongoingCtx, stopOngoingGracefully := context.WithCancel(context.Background())

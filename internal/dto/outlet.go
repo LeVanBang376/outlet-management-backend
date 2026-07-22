@@ -44,8 +44,8 @@ func (r CreateOutletRequest) Validate() error {
 	}
 
 	if r.HasWorkingSchedule {
-		if _, err := time.Parse("2006-01-02", r.ScheduleDate); err != nil {
-			return err
+		if _, err := time.Parse(time.RFC3339, r.ScheduleDate); err != nil {
+			return customerrors.OutletErrInvalidScheduleDate
 		}
 	}
 

@@ -13,7 +13,6 @@ VALUES
     ('Trần Thị Bình'),
     ('Lê Văn Cường');
 
-
 CREATE TABLE outlets (
     outlet_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -50,24 +49,33 @@ CREATE TABLE working_schedules (
 
     CONSTRAINT fk_working_schedules_sales
         FOREIGN KEY (sales_id)
-        REFERENCES sales(sales_id)
+        REFERENCES sales(sales_id),
 
     CONSTRAINT uq_working_schedules_sales_outlet_date
         UNIQUE (sales_id, outlet_id, schedule_date)
 );
 
-CREATE TABLE evidences (
-    evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    schedule_id INTEGER NOT NULL,
+CREATE TABLE files (
+    file_id INTEGER PRIMARY KEY AUTOINCREMENT,
     object_key TEXT NOT NULL,
     file_name TEXT NOT NULL,
     content_type TEXT NOT NULL,
     size INTEGER NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE evidences (
+    evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    schedule_id INTEGER NOT NULL,
+    file_id INTEGER NOT NULL,
 
     CONSTRAINT fk_evidences_schedule
         FOREIGN KEY (schedule_id)
-        REFERENCES working_schedules(schedule_id)
+        REFERENCES working_schedules(schedule_id),
+
+    CONSTRAINT fk_evidences_file
+        FOREIGN KEY (file_id)
+        REFERENCES files(file_id)
 );
 
 -- Indexes
@@ -83,18 +91,27 @@ ON working_schedules(sales_id);
 CREATE INDEX idx_working_schedules_schedule_date
 ON working_schedules(schedule_date);
 
+CREATE INDEX idx_files_object_key
+ON files(object_key);
+
 CREATE INDEX idx_evidences_schedule_id
 ON evidences(schedule_id);
 
+CREATE INDEX idx_evidences_file_id
+ON evidences(file_id);
+
 -- +goose Down
 
+DROP INDEX IF EXISTS idx_evidences_file_id;
 DROP INDEX IF EXISTS idx_evidences_schedule_id;
+DROP INDEX IF EXISTS idx_files_object_key;
 DROP INDEX IF EXISTS idx_working_schedules_schedule_date;
 DROP INDEX IF EXISTS idx_working_schedules_sales_id;
 DROP INDEX IF EXISTS idx_working_schedules_outlet_id;
 DROP INDEX IF EXISTS idx_outlets_sales_id;
 
 DROP TABLE IF EXISTS evidences;
+DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS working_schedules;
 DROP TABLE IF EXISTS outlets;
 DROP TABLE IF EXISTS sales;

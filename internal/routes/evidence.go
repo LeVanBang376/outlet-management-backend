@@ -9,7 +9,6 @@ func RegisterEvidenceRoutes(
 	mux *http.ServeMux,
 	handler *handler.EvidenceHandler,
 ) {
-
 	mux.HandleFunc(
 		"POST /evidences",
 		handler.Create,
@@ -21,7 +20,7 @@ func RegisterEvidenceRoutes(
 	)
 
 	mux.HandleFunc(
-		"GET /evidences",
+		"GET /working-schedules/{scheduleId}/evidences",
 		handler.GetByScheduleID,
 	)
 

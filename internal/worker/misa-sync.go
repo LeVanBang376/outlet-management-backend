@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"magnolia-test-backend/internal/constants"
 	"magnolia-test-backend/internal/repository"
 	"time"
@@ -32,6 +31,5 @@ func (w *Worker) SyncWorkingSchedule(
 		return err
 	}
 
-	fmt.Println("Sync successfully")
 	return nil
 }
