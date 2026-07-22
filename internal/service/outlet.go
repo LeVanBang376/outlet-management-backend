@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"database/sql"
+	"log"
 	"magnolia-test-backend/internal/constants"
 	customerrors "magnolia-test-backend/internal/custom-errors"
 	"magnolia-test-backend/internal/dto"
 	"magnolia-test-backend/internal/model"
 	"magnolia-test-backend/internal/repository"
 	"magnolia-test-backend/internal/response"
+	"magnolia-test-backend/internal/worker"
 	"time"
 )
 
@@ -16,13 +18,15 @@ type OutletService struct {
 	db                  *sql.DB
 	repo                *repository.OutletRepository
 	workingScheduleRepo *repository.WorkingScheduleRepository
+	worker              *worker.Worker
 }
 
-func NewOutletService(db *sql.DB, repo *repository.OutletRepository, wsRepo *repository.WorkingScheduleRepository) *OutletService {
+func NewOutletService(db *sql.DB, repo *repository.OutletRepository, wsRepo *repository.WorkingScheduleRepository, worker *worker.Worker) *OutletService {
 	return &OutletService{
 		db:                  db,
 		repo:                repo,
 		workingScheduleRepo: wsRepo,
+		worker:              worker,
 	}
 }
 
@@ -56,6 +60,8 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 		return nil, err
 	}
 
+	var scheduleID uint
+
 	if req.HasWorkingSchedule {
 		schedule := &model.WorkingSchedule{
 			OutletID:      res.OutletID,
@@ -65,16 +71,30 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 			CurrentStage:  res.Stage,
 			ExpectedStage: nil,
 			Note:          nil,
-			SyncStatus:    constants.SyncStatusSynced,
+			SyncStatus:    constants.SyncStatusQueued,
 		}
 
-		err := s.workingScheduleRepo.Upsert(ctx, tx, schedule)
+		scheduleRes, err := s.workingScheduleRepo.Upsert(ctx, tx, schedule)
 		if err != nil {
 			return nil, err
 		}
+
+		scheduleID = scheduleRes.ScheduleID
 	}
 
-	return res, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	if scheduleID > 0 {
+		go func(id uint) {
+			if err := s.worker.SyncWorkingSchedule(context.Background(), id); err != nil {
+				log.Printf("sync misa failed: %v", err)
+			}
+		}(scheduleID)
+	}
+
+	return res, nil
 }
 
 func (s *OutletService) GetByID(ctx context.Context, id uint) (*dto.OutletResponse, error) {

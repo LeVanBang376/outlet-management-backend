@@ -10,6 +10,7 @@ import (
 	"magnolia-test-backend/internal/repository"
 	"magnolia-test-backend/internal/routes"
 	"magnolia-test-backend/internal/service"
+	"magnolia-test-backend/internal/worker"
 	"net"
 	"net/http"
 	"os/signal"
@@ -82,8 +83,11 @@ func main() {
 	evidenceRepository := repository.NewEvidenceRepository(db)
 	salesRepository := repository.NewSalesRepository(db)
 
+	// Worker
+	worker := worker.NewWorker(workingScheduleRepository)
+
 	// Services
-	outletService := service.NewOutletService(db, outletRepository, workingScheduleRepository)
+	outletService := service.NewOutletService(db, outletRepository, workingScheduleRepository, worker)
 	workingScheduleService := service.NewWorkingScheduleService(db, workingScheduleRepository)
 	evidenceService := service.NewEvidenceService(db, evidenceRepository)
 	salesService := service.NewSalesService(db, salesRepository)

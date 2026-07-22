@@ -26,17 +26,17 @@ func NewWorkingScheduleService(db *sql.DB, repo *repository.WorkingScheduleRepos
 func (s *WorkingScheduleService) Create(
 	ctx context.Context,
 	req dto.CreateWorkingScheduleRequest,
-) error {
+) (*dto.WorkingScheduleResponse, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	now := time.Now()
 	scheduleDate, err := time.Parse("2006-01-02", req.ScheduleDate)
 	if err != nil {
-		return fmt.Errorf("invalid schedule_date: %w", err)
+		return nil, fmt.Errorf("invalid schedule_date: %w", err)
 	}
 
 	schedule := model.WorkingSchedule{
@@ -52,12 +52,12 @@ func (s *WorkingScheduleService) Create(
 		UpdatedAt:     now,
 	}
 
-	err = s.repo.Create(ctx, tx, &schedule)
+	res, err := s.repo.Create(ctx, tx, &schedule)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return tx.Commit()
+	return res, tx.Commit()
 }
 
 func (s *WorkingScheduleService) GetByID(
@@ -104,26 +104,26 @@ func (s *WorkingScheduleService) Update(
 	ctx context.Context,
 	id uint,
 	req dto.UpdateWorkingScheduleRequest,
-) error {
+) (*dto.WorkingScheduleResponse, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	schedule, err := s.repo.FindByID(ctx, tx, id)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if schedule == nil {
-		return customerrors.WorkingScheduleErrNotFound
+		return nil, customerrors.WorkingScheduleErrNotFound
 	}
 
 	scheduleDate, err := time.Parse("2006-01-02", req.ScheduleDate)
 	if err != nil {
-		return fmt.Errorf("invalid schedule_date: %w", err)
+		return nil, fmt.Errorf("invalid schedule_date: %w", err)
 	}
 
 	schedule.Address = req.Address
@@ -134,11 +134,12 @@ func (s *WorkingScheduleService) Update(
 	schedule.SyncStatus = req.SyncStatus
 	schedule.UpdatedAt = time.Now()
 
-	if err := s.repo.Update(ctx, tx, schedule); err != nil {
-		return err
-	}
+	res, err := s.repo.Update(ctx, tx, schedule)
 
-	return tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	return res, tx.Commit()
 }
 
 func (s *WorkingScheduleService) Delete(

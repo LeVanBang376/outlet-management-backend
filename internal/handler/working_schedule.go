@@ -34,20 +34,22 @@ func (h *WorkingScheduleHandler) Create(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.service.Create(r.Context(), req); err != nil {
+	if res, err := h.service.Create(r.Context(), req); err != nil {
 		response.NonDataJSON(
 			w,
 			http.StatusInternalServerError,
 			err.Error(),
 		)
 		return
+	} else {
+		response.JSON(
+			w,
+			http.StatusCreated,
+			"Created successfully",
+			res,
+		)
+		return
 	}
-
-	response.NonDataJSON(
-		w,
-		http.StatusCreated,
-		"Created successfully",
-	)
 }
 
 func (h *WorkingScheduleHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +146,7 @@ func (h *WorkingScheduleHandler) Update(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = h.service.Update(
+	res, err := h.service.Update(
 		r.Context(),
 		uint(id),
 		req,
@@ -168,10 +170,11 @@ func (h *WorkingScheduleHandler) Update(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.NonDataJSON(
+	response.JSON(
 		w,
 		http.StatusOK,
 		"Updated successfully",
+		res,
 	)
 }
 

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"magnolia-test-backend/internal/dto"
 	"magnolia-test-backend/internal/model"
 	"time"
 )
@@ -17,7 +18,7 @@ func NewWorkingScheduleRepository(db *sql.DB) *WorkingScheduleRepository {
 	}
 }
 
-func (r *WorkingScheduleRepository) Create(ctx context.Context, tx *sql.Tx, schedule *model.WorkingSchedule) error {
+func (r *WorkingScheduleRepository) Create(ctx context.Context, tx *sql.Tx, schedule *model.WorkingSchedule) (*dto.WorkingScheduleResponse, error) {
 	query := `
 		INSERT INTO working_schedules (
 			outlet_id,
@@ -50,17 +51,19 @@ func (r *WorkingScheduleRepository) Create(ctx context.Context, tx *sql.Tx, sche
 	)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	schedule.ScheduleID = uint(id)
 
-	return nil
+	res := dto.ToWorkingScheduleResponse(schedule, []*dto.EvidenceResponse{})
+
+	return res, nil
 }
 
 func (r *WorkingScheduleRepository) FindByID(ctx context.Context, tx *sql.Tx, id uint) (*model.WorkingSchedule, error) {
@@ -226,7 +229,7 @@ func (r *WorkingScheduleRepository) FindAll(ctx context.Context, tx *sql.Tx) ([]
 	return schedules, rows.Err()
 }
 
-func (r *WorkingScheduleRepository) Update(ctx context.Context, tx *sql.Tx, schedule *model.WorkingSchedule) error {
+func (r *WorkingScheduleRepository) Update(ctx context.Context, tx *sql.Tx, schedule *model.WorkingSchedule) (*dto.WorkingScheduleResponse, error) {
 	query := `
 		UPDATE working_schedules
 		SET
@@ -253,7 +256,12 @@ func (r *WorkingScheduleRepository) Update(ctx context.Context, tx *sql.Tx, sche
 		schedule.ScheduleID,
 	)
 
-	return err
+	if err != nil {
+		return nil, err
+	}
+
+	res := dto.ToWorkingScheduleResponse(schedule, []*dto.EvidenceResponse{})
+	return res, nil
 }
 
 func (r *WorkingScheduleRepository) Delete(ctx context.Context, tx *sql.Tx, id uint) error {
@@ -330,7 +338,7 @@ func (r *WorkingScheduleRepository) Upsert(
 	ctx context.Context,
 	tx *sql.Tx,
 	schedule *model.WorkingSchedule,
-) error {
+) (*dto.WorkingScheduleResponse, error) {
 	existing, err := r.FindBySalesOutletAndDate(
 		ctx,
 		tx,
@@ -340,7 +348,7 @@ func (r *WorkingScheduleRepository) Upsert(
 	)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if existing == nil {
@@ -352,4 +360,28 @@ func (r *WorkingScheduleRepository) Upsert(
 	schedule.CreatedAt = existing.CreatedAt
 
 	return r.Update(ctx, tx, schedule)
+}
+
+func (r *WorkingScheduleRepository) UpdateSyncStatus(
+	ctx context.Context,
+	id uint,
+	status string,
+) error {
+	query := `
+		UPDATE working_schedules
+		SET
+			sync_status = ?,
+			updated_at = ?
+		WHERE schedule_id = ?
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		status,
+		time.Now(),
+		id,
+	)
+
+	return err
 }
