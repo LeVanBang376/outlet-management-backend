@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"magnolia-test-backend/internal/evidence"
+	"magnolia-test-backend/internal/handler"
 	middleware "magnolia-test-backend/internal/middlewares"
-	"magnolia-test-backend/internal/outlet"
-	"magnolia-test-backend/internal/sales"
-	"magnolia-test-backend/internal/working_schedule"
+	"magnolia-test-backend/internal/repository"
+	"magnolia-test-backend/internal/routes"
+	"magnolia-test-backend/internal/service"
 	"net"
 	"net/http"
 	"os/signal"
@@ -76,33 +76,31 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Outlet
-	outletRepository := outlet.NewRepository(db)
-	outletService := outlet.NewService(outletRepository)
-	outletHandler := outlet.NewHandler(outletService)
+	// Repositories
+	outletRepository := repository.NewOutletRepository(db)
+	workingScheduleRepository := repository.NewWorkingScheduleRepository(db)
+	evidenceRepository := repository.NewEvidenceRepository(db)
+	salesRepository := repository.NewSalesRepository(db)
 
-	// Working Schedule
-	workingScheduleRepository := working_schedule.NewRepository(db)
-	workingScheduleService := working_schedule.NewService(workingScheduleRepository)
-	workingScheduleHandler := working_schedule.NewHandler(workingScheduleService)
+	// Services
+	outletService := service.NewOutletService(db, outletRepository, workingScheduleRepository)
+	workingScheduleService := service.NewWorkingScheduleService(db, workingScheduleRepository)
+	evidenceService := service.NewEvidenceService(db, evidenceRepository)
+	salesService := service.NewSalesService(db, salesRepository)
 
-	// Evidence
-	evidenceRepository := evidence.NewRepository(db)
-	evidenceService := evidence.NewService(evidenceRepository)
-	evidenceHandler := evidence.NewHandler(evidenceService)
-
-	// Sales
-	salesRepository := sales.NewRepository(db)
-	salesService := sales.NewService(salesRepository)
-	salesHandler := sales.NewHandler(salesService)
+	// Handlers
+	outletHandler := handler.NewOutletHandler(outletService)
+	workingScheduleHandler := handler.NewWorkingScheduleHandler(workingScheduleService)
+	evidenceHandler := handler.NewEvidenceHandler(evidenceService)
+	salesHandler := handler.NewSalesHandler(salesService)
 
 	// Apply middlewares - Recovery and CORS
 	handler := middleware.CORS([]string{"http://localhost:3000"})(mux)
 
-	outlet.RegisterRoutes(mux, outletHandler)
-	working_schedule.RegisterRoutes(mux, workingScheduleHandler)
-	evidence.RegisterRoutes(mux, evidenceHandler)
-	sales.RegisterRoutes(mux, salesHandler)
+	routes.RegisterOutletRoutes(mux, outletHandler)
+	routes.RegisterWorkingScheduleRoutes(mux, workingScheduleHandler)
+	routes.RegisterEvidenceRoutes(mux, evidenceHandler)
+	routes.RegisterSalesRoutes(mux, salesHandler)
 
 	// Ensure in-flight requests aren't cancelled immediately on SIGTERM
 	ongoingCtx, stopOngoingGracefully := context.WithCancel(context.Background())
