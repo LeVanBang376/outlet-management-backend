@@ -179,6 +179,10 @@ func (s *OutletService) Update(ctx context.Context, id uint, req dto.UpdateOutle
 	outlet.Note = &req.Note
 	outlet.UpdatedAt = time.Now()
 
+	if err := s.repo.Update(ctx, tx, outlet); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 

@@ -70,13 +70,7 @@ func (s *WorkingScheduleService) Create(
 		return nil, err
 	}
 
-	if res.ScheduleID > 0 {
-		go func(id uint) {
-			if err := s.worker.SyncWorkingSchedule(context.Background(), id); err != nil {
-				log.Printf("sync misa failed: %v", err)
-			}
-		}(res.ScheduleID)
-	}
+	s.triggerSync(res.ScheduleID)
 
 	return res, nil
 }
@@ -197,13 +191,7 @@ func (s *WorkingScheduleService) Update(
 		return nil, err
 	}
 
-	if res.ScheduleID > 0 {
-		go func(id uint) {
-			if err := s.worker.SyncWorkingSchedule(context.Background(), id); err != nil {
-				log.Printf("sync misa failed: %v", err)
-			}
-		}(res.ScheduleID)
-	}
+	s.triggerSync(res.ScheduleID)
 
 	return res, nil
 }
@@ -286,4 +274,16 @@ func (s *WorkingScheduleService) ChangeStage(
 	}
 
 	return tx.Commit()
+}
+
+func (s *WorkingScheduleService) triggerSync(scheduleID uint) {
+	if scheduleID == 0 {
+		return
+	}
+
+	go func(id uint) {
+		if err := s.worker.SyncWorkingSchedule(context.Background(), id); err != nil {
+			log.Printf("sync misa failed for schedule %d: %v", id, err)
+		}
+	}(scheduleID)
 }

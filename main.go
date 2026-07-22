@@ -102,7 +102,7 @@ func main() {
 	fileHandler := handler.NewFileHandler(fileService)
 
 	// Apply middlewares - Recovery and CORS
-	handler := middleware.CORS([]string{"http://localhost:3000"})(mux)
+	handler := middleware.CORS()(mux)
 
 	routes.RegisterOutletRoutes(mux, outletHandler)
 	routes.RegisterWorkingScheduleRoutes(mux, workingScheduleHandler)
