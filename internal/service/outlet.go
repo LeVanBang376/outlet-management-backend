@@ -43,10 +43,6 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 	defer tx.Rollback()
 
 	now := time.Now()
-	scheduleDate, err := time.Parse(time.RFC3339, req.ScheduleDate)
-	if err != nil {
-		return nil, fmt.Errorf("invalid schedule_date: %w", err)
-	}
 
 	outlet := model.Outlet{
 		Name:      req.Name,
@@ -68,6 +64,11 @@ func (s *OutletService) Create(ctx context.Context, req dto.CreateOutletRequest)
 	var scheduleID uint
 
 	if req.HasWorkingSchedule {
+		scheduleDate, err := time.Parse(time.RFC3339, req.ScheduleDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid schedule_date: %w", err)
+		}
+
 		schedule := &model.WorkingSchedule{
 			OutletID:      res.OutletID,
 			SalesID:       res.SalesID,
